@@ -13,7 +13,7 @@ of ~3,400 GTFS feeds with bounding boxes and stable mirrors. No key, no cost.
     python3 pipeline/load_gtfs.py --catalog --state Illinois
     python3 pipeline/load_gtfs.py --catalog --metro Chicago --limit 5
     python3 pipeline/load_gtfs.py --url https://www.transitchicago.com/downloads/sch_data/google_transit.zip
-    python3 pipeline/load_gtfs.py --catalog --top 40      # the 40 largest US feeds
+    python3 pipeline/load_gtfs.py --catalog --top 40      # the 40 geographically widest feeds
 """
 
 from __future__ import annotations
@@ -126,8 +126,9 @@ def select_feeds(
         selected.append(row)
 
     if top:
-        # Bounding-box area is a decent free proxy for how much of the country a feed
-        # covers, which is what we want when seeding the largest systems first.
+        # Bounding-box area measures how much *ground* a feed spans, which is not the same
+        # as how much *service* it carries: a national-park shuttle with twelve stops
+        # outranks the entire New York subway. Use --metro to seed dense systems.
         def area(row: dict) -> float:
             try:
                 return abs(
@@ -497,7 +498,12 @@ def main() -> int:
     parser.add_argument("--state", help="Filter the catalog by state/subdivision.")
     parser.add_argument("--metro", help="Filter the catalog by municipality, provider or feed name.")
     parser.add_argument("--limit", type=int, help="Cap the number of feeds ingested.")
-    parser.add_argument("--top", type=int, help="Take the N largest feeds by bounding-box area.")
+    parser.add_argument(
+        "--top",
+        type=int,
+        help="Take the N feeds spanning the widest bounding box. This favours sparse "
+        "regional feeds over dense city systems — prefer --metro for seeding.",
+    )
     parser.add_argument("--list", action="store_true", help="Print matching feeds without ingesting.")
     args = parser.parse_args()
 

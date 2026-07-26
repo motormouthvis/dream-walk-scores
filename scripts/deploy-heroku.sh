@@ -15,8 +15,9 @@ set -euo pipefail
 
 APP="${1:-${HEROKU_APP:-dream-walk-scores}}"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-# How many GTFS feeds to seed. Each is a download and a parse, so this is the main cost.
-GTFS_FEEDS="${GTFS_FEEDS:-25}"
+# Seeding runs the curated major-metro list rather than a slice of the whole catalog.
+# Set GTFS_SEED=skip to deploy without transit data and load it later.
+GTFS_SEED="${GTFS_SEED:-metros}"
 
 step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 info() { printf '    %s\n' "$1"; }
@@ -137,9 +138,16 @@ curl -fsS "${BASE}/api/health" | sed 's/^/    /'
 
 step "Loading transit feeds (this is the slow part)"
 
-info "ingesting the ${GTFS_FEEDS} largest US feeds; roughly five to ten minutes"
-heroku run --exit-code --app "$APP" \
-  "python3 pipeline/load_gtfs.py --catalog --top ${GTFS_FEEDS}" 2>&1 | tail -20
+if [ "$GTFS_SEED" = "skip" ]; then
+  info "skipped (GTFS_SEED=skip) — Transit Scores will fall back to OpenStreetMap"
+else
+  # The major metros, not a slice of the catalog. Selecting feeds by bounding-box area
+  # ("--top N") sorts national-park shuttles above the New York subway, which leaves a
+  # walkability product with no schedules anywhere that people actually walk.
+  info "ingesting the major metro feeds; roughly ten to fifteen minutes"
+  heroku run --exit-code --app "$APP" \
+    "bash pipeline/load_calibration_gtfs.sh" 2>&1 | tail -30
+fi
 
 # ---------------------------------------------------------------------------
 

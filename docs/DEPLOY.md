@@ -12,15 +12,15 @@ bash scripts/deploy-heroku.sh
 ```
 
 Creates the app, sets the buildpacks, provisions Postgres, generates an admin password,
-deploys, waits for the app to answer, loads the 25 largest US transit feeds, and prints the
-URLs. Roughly ten minutes, most of it downloading GTFS.
+deploys, waits for the app to answer, loads GTFS for the major metros, and prints the URLs.
+Roughly fifteen minutes, most of it downloading GTFS.
 
 Safe to re-run — every step checks for what it needs before creating anything, so a run
 that fails partway through can just be run again.
 
 ```bash
-bash scripts/deploy-heroku.sh my-app-name    # a different app name
-GTFS_FEEDS=60 bash scripts/deploy-heroku.sh  # more transit coverage, slower
+bash scripts/deploy-heroku.sh my-app-name       # a different app name
+GTFS_SEED=skip bash scripts/deploy-heroku.sh    # no transit data; load it yourself later
 ```
 
 ---
@@ -152,10 +152,12 @@ python3 pipeline/precompute_grid.py \
 
 About **$12/month**, against per-call pricing for the Walk Score API.
 
-Watch the row count rather than storage: `essential-0` caps at 10,000 rows and a
-precomputed metro will exceed that on its own. `essential-1` ($9) raises the cap to
-1,000,000, which is enough for several metros with room to spare. `/admin` shows the cached
-cell count.
+`essential-0` is capped at **1 GB of storage, not a row count** — the old 10,000-row limit
+belonged to the retired `hobby-dev` tier and no longer applies. Check the real headroom
+with `heroku pg:info`. A precomputed metro is a few thousand rows in `score_cache` and the
+major-metro GTFS seed is a few hundred thousand in `gtfs_stop`, so several metros fit
+comfortably; `essential-1` ($9, 10 GB) is the next step if `pg:info` shows the data size
+approaching the cap. `/admin` shows the cached cell count.
 
 ---
 
