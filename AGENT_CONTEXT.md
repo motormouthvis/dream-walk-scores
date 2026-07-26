@@ -98,8 +98,16 @@ heroku config:get ADMIN_PASSWORD --app dream-walk-scores
   `--concurrency 1` is slower per pass but completes far more cells, and the job is
   checkpointed to `precompute_region`, so repeated passes are cheap: already-cached cells
   are skipped at ~100/s. Run several passes rather than one.
-- **Fort Pierce precompute is running detached** (~2,800 cells, checkpointed). Resume or
-  re-run with:
+- **Precompute also destabilises the live app, so it is currently stopped.** While it runs,
+  `/api/health` intermittently reports `degraded` with `Connection terminated due to
+  connection timeout` — not connection-count exhaustion (Postgres showed 6/20 in use), but
+  the single 512 MB web dyno being saturated enough that the pg client's connect timeout
+  fires. It recovers on its own, and a `heroku restart` clears it immediately. **A working
+  app is worth more than a partly warmed cache**, so do not leave precompute running
+  unattended against the Basic dyno. Fixing this properly means getting off per-cell live
+  Overpass — see `walk-score-strategy.md`.
+- **Fort Pierce precompute is partially done and safe to resume** (~2,800 cells,
+  checkpointed; cached cells re-scan at ~100/s). Resume with:
 
 ```bash
 heroku run:detached --app dream-walk-scores \
