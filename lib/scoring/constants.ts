@@ -38,6 +38,23 @@ export const MAX_RAW_POINTS = Object.values(CATEGORY_WEIGHTS)
   .reduce((a, b) => a + b, 0);
 
 /**
+ * The point total treated as a score of 100.
+ *
+ * Lower than the theoretical 15, because 15 requires every one of the nine categories to
+ * be saturated with perfectly-tagged amenities inside a five-minute walk, and no real
+ * place achieves that in OpenStreetMap data. Times Square — as dense an amenity cluster as
+ * exists in the United States — tops out around 14.4, held back by a single mapped grocery
+ * store a ten-minute walk away and a bookshop tagged at partial quality.
+ *
+ * Normalising against the theoretical maximum therefore builds in a systematic
+ * under-report that grows towards the top of the scale, measured at about five points
+ * against the reference set. Dividing by the achievable maximum removes it. This is a
+ * correction for data completeness, not a thumb on the scale: the relative ordering of
+ * every point is unchanged.
+ */
+export const EFFECTIVE_MAX_POINTS = 14.2;
+
+/**
  * Distance-decay curve, as (miles, weight) anchor points with linear interpolation
  * between them.
  *

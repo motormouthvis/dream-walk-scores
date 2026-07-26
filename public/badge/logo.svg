@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Attribution logo returned as `logo_url` by the Walk Score compatibility endpoint.
+  Consumers of that API render whatever it points at, so this has to exist and has to be
+  legible at small sizes.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="28" viewBox="0 0 180 28" role="img" aria-label="Dream Walk Scores">
+  <g fill="none" fill-rule="evenodd">
+    <circle cx="14" cy="14" r="13" fill="#1fa55f"/>
+    <g stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="14" cy="7.5" r="1.9" fill="#fff" stroke="none"/>
+      <path d="M11.4 20.5 12.9 15 10.7 12.6l.9-3.4 3.4.9 1.7 2.4"/>
+      <path d="M15.4 15.4 17.6 20.5"/>
+    </g>
+    <text x="34" y="12.5" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif"
+          font-size="11" font-weight="700" fill="#111827">Dream Walk Scores</text>
+    <text x="34" y="23" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif"
+          font-size="8" fill="#6b7280">OpenStreetMap · GTFS · Census</text>
+  </g>
+</svg>

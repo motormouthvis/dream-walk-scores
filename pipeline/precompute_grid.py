@@ -104,7 +104,7 @@ def register_region(conn, name: str, bbox: tuple[float, float, float, float], sp
                 status      = 'running'
             returning id
             """,
-            (west, south, east, north, spacing, total),
+            (name, west, south, east, north, spacing, total),
         )
         region_id = cur.fetchone()[0]
     conn.commit()

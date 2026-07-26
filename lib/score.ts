@@ -32,8 +32,6 @@ export interface ScoreOptions {
   address?: string | null;
   /** Generate the "why this score" text with the LLM. Falls back to the template on failure. */
   ai?: boolean;
-  /** Skip all caches and recompute from source. */
-  fresh?: boolean;
 }
 
 /**

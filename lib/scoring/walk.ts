@@ -9,7 +9,13 @@
 
 import { CATEGORY_LABELS, type AmenityCategory, type AmenityHit, type CategoryBreakdown, type WalkScoreDetail } from "@/lib/types";
 import { AMENITY_CATEGORIES } from "@/lib/types";
-import { CATEGORY_WEIGHTS, MAX_RAW_POINTS, MAX_WALK_METERS, WALK_BANDS } from "@/lib/scoring/constants";
+import {
+  CATEGORY_WEIGHTS,
+  EFFECTIVE_MAX_POINTS,
+  MAX_RAW_POINTS,
+  MAX_WALK_METERS,
+  WALK_BANDS,
+} from "@/lib/scoring/constants";
 import { band, decayWeight, pedestrianPenaltyFactor } from "@/lib/scoring/decay";
 
 /** An amenity as handed to the scorer: already classified, already measured. */
@@ -133,7 +139,10 @@ export function calculateWalkScore(input: WalkScoreInput): WalkScoreDetail {
   const rawPoints = categories.reduce((sum, c) => sum + c.points, 0);
 
   const penaltyFactor = pedestrianPenaltyFactor(input.intersectionDensity, input.avgBlockLengthMeters);
-  const score = Math.max(0, Math.min(100, Math.round((rawPoints / MAX_RAW_POINTS) * 100 * penaltyFactor)));
+  const score = Math.max(
+    0,
+    Math.min(100, Math.round((rawPoints / EFFECTIVE_MAX_POINTS) * 100 * penaltyFactor))
+  );
 
   const { label, explanation } = band(WALK_BANDS, score);
 
