@@ -122,29 +122,40 @@ Report, with file and line citations, whether the code in this repository compli
 These do not arise for a standalone API and are the reason this document is needed. Several may
 matter more than the patents.
 
-### A. Contract and terms of service — likely the most urgent
+### A. Terms of service on the free API
 
-This product **is or was a paying walkscore.com API customer**. Find and read whatever
-agreement or terms govern that relationship, and determine:
+**Established facts, provided by the product owner — treat these as given and verify rather
+than investigate from scratch:** this product has only ever used the **free** walkscore.com
+API tier, never a paid subscription. It has **never scraped** walkscore.com, and has **never
+stored or cached** Walk Score values. The free API is being **abandoned immediately**.
 
-- whether it restricts using the API, its output, or its data to **build, benchmark against, or
-  train a competing or replacement product**;
-- whether it restricts **storing, caching or deriving** from returned values;
-- what the **termination and post-termination** obligations are, including any duty to delete
-  cached values;
-- whether any **attribution obligation survives** termination.
+That is a much simpler posture than a negotiated commercial agreement, and it removes the
+contract-termination and cached-data-deletion questions entirely. Two narrower things remain
+worth documenting:
 
-Then check this repository for whether Walk Score values have been **stored, cached, or
-committed** anywhere — database tables, fixtures, test data, migrations, CSVs, snapshots.
-Report every instance with a path.
+- **Locate the free-tier terms of service that governed the API's use** and record what they
+  said about attribution, permitted use, caching, and building competing or derivative
+  products. Free API tiers are frequently *more* restrictive than paid ones on exactly these
+  points — non-commercial-use clauses, mandatory attribution, and no-caching provisions are
+  common — so the terms are worth having on file even though usage is ending.
+- **Verify the negatives so counsel has them on record.** Search the repository and any
+  database schema for stored or cached Walk Score values — tables, columns, fixtures,
+  migrations, test data, committed CSVs, snapshots, cached HTTP responses. The expected result
+  is that there are none. **Report the search you performed and its negative result**; a
+  documented negative is worth considerably more than an unstated assumption.
+- **Confirm all outbound calls to walkscore.com are removed** at cutover, not merely
+  unreachable behind a feature flag, and cite the files where the calls were made.
 
-**Flag this specifically:** the standalone project's calibration tooling
-(`npm run calibrate`, `scripts/calibration-set.ts`) worked by **scraping published Walk Score
-reference values from walkscore.com** to tune constants. If any equivalent practice is carried
-into this repository, or if any such scraped values are committed here, that is a terms-of-service
-and possibly a Computer Fraud and Abuse Act question **entirely separate from patents**, and it
-is one of the few issues here that could create liability even if every patent is cleared.
-Do not assert whether it is a breach — surface it, cite the file, and ask counsel.
+**One inherited fact counsel should know, stated precisely and without overstatement.** The
+scoring constants that may be ported into this product were originally fitted in the sibling
+`dream-walk-scores` repository, and that project's *development-time* calibration tool
+(`npm run calibrate`, `scripts/calibration-set.ts`) compared computed values against
+**published Walk Score reference values retrieved from walkscore.com**. It was never a runtime
+dependency and no values were stored. This product did not do it. But if those fitted constants
+are carried across, the derivation history travels with them, and counsel may wish to know how
+the numbers were tuned. Record the fact neutrally; do not characterise it as a breach, and do
+not extend it into a CFAA discussion — the conduct at issue is retrieval of publicly published
+values by a separate project, and assessing it is counsel's job, not yours.
 
 ### B. Trademark removal and substitution
 
@@ -224,8 +235,11 @@ shape-mirroring code exists in this repository and recommend it not be created.
 1. **Purpose and limits** — engineer not lawyer; not legal advice; what was verified and how;
    what could not be verified.
 2. **Executive summary** — the handful of findings that would change a decision, ordered by
-   how likely they are to matter. Put the contract/ToS and Fair Housing items high if your
-   research supports that.
+   how likely they are to matter. On the facts as known, **Fair Housing and accessibility are
+   the two most likely to matter**, followed by the `US 9,677,892` transit claim; the
+   terms-of-service question is comparatively minor because only the free tier was used, nothing
+   was scraped, and nothing was stored. Order by what your own research supports, and say so if
+   you disagree with that ranking.
 3. **What this product does** — the actual implementation, with file and line citations. Be
    specific about where metrics are computed, where they are stored, and where they are
    displayed.
@@ -271,17 +285,23 @@ Suggested items to add. Ordered roughly by urgency rather than by size.
 
 ## Before cutover
 
-- [ ] **Obtain and review the walkscore.com API agreement / terms of service.** Look
-      specifically for restrictions on derived data, on benchmarking, and on building a
-      replacement; for cache-deletion duties on termination; and for surviving attribution
-      obligations. This is the one issue that can create liability even if every patent is
-      cleared.
-- [ ] **Audit the repository and database for stored Walk Score values** — tables, fixtures,
-      migrations, test data, committed CSVs, snapshots. Decide what must be deleted at
-      termination.
-- [ ] **Determine whether any calibration against scraped Walk Score values has occurred or is
-      planned.** The standalone project's `npm run calibrate` scraped published values from
-      walkscore.com. Get counsel's view on ToS and CFAA before any equivalent is used here.
+- [ ] **Remove every outbound walkscore.com call**, not merely disable it behind a flag, and
+      remove the Walk Score® attribution at the same time. Once the product displays its own
+      numbers, continuing to show their attribution is both inaccurate and a trademark problem.
+- [ ] **Archive a copy of the free-tier terms of service** that governed prior use, for the
+      file. Free tiers commonly carry non-commercial-use, mandatory-attribution and no-caching
+      clauses, so it is worth having even though usage is ending.
+- [ ] **Document the negatives.** Run and record a search establishing that no Walk Score
+      values are stored or cached anywhere — tables, fixtures, migrations, test data, committed
+      CSVs, cached responses. A documented negative result is worth much more than an
+      unstated assumption, and it is cheap to produce now and expensive to reconstruct later.
+- [ ] **Record how the scoring constants were derived**, if they are ported from
+      `dream-walk-scores`. That project's development-time calibration compared against
+      published Walk Score reference values retrieved from walkscore.com. Nothing was stored and
+      it was never a runtime dependency, but counsel should know how the numbers were tuned.
+      Consider re-fitting against the free national benchmarks instead — EPA's National
+      Walkability Index and the peer-reviewed Walkable Accessibility Score — which removes the
+      question entirely and is better methodology anyway.
 - [ ] **Confirm the `US 8,892,455` maintenance-fee status** in USPTO Patent Center. Grace
       period closes ~2026-11-18. If lapsed, one of the two walkability patents drops out.
 - [ ] **Pull terminal disclaimers** for `US 9,964,410`, `US 10,317,219` and `US 10,962,373`
