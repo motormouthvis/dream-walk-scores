@@ -40,41 +40,63 @@ All four were public and clonable as of 2026-07-26.
 
 ---
 
-## CURRENT TASK: deploy to Heroku
+## DEPLOYED — 2026-07-26
 
-**Status: not deployed.** Everything is built, tested and ready; the previous agent had no
-`HEROKU_API_KEY` in its environment and could not create the app.
+**App:** <https://dream-walk-scores-e1295d04a5c0.herokuapp.com>
+**Heroku app name:** `dream-walk-scores` (account `bill@motormouth.io`, Basic dyno + `essential-0` Postgres)
 
-`HEROKU_API_KEY` was added as a cloud-agent secret scoped to this repo on 2026-07-26, so
-**any run started after that date has it**. Confirm with `echo ${HEROKU_API_KEY:+present}`
-before starting.
+| Surface | URL |
+| --- | --- |
+| Try it | <https://dream-walk-scores-e1295d04a5c0.herokuapp.com> |
+| Health | `/api/health` |
+| Admin | `/admin` |
+| Methodology | `/methodology` |
+| Walk Score drop-in | `/api/walkscore` |
+
+Smoke: **68/68** (`ADMIN_PASSWORD=… node scripts/smoke.mjs <url>`).
+
+The admin password is generated and stored only as a Heroku config var — it is deliberately
+**not** in this repo, which is public. Read it with:
 
 ```bash
-bash scripts/deploy-heroku.sh
+heroku config:get ADMIN_PASSWORD --app dream-walk-scores
 ```
-
-Creates the app, orders the buildpacks, provisions Postgres, sets config vars, deploys,
-waits for health, and seeds 25 GTFS feeds. Idempotent — re-run it if a step fails.
-
-Then:
-
-```bash
-node scripts/smoke.mjs https://<app>.herokuapp.com     # expect 68/68
-heroku run:detached --app <app> \
-  "python3 pipeline/precompute_grid.py --metro fort-pierce --spacing 200 --base-url https://<app>.herokuapp.com"
-```
-
-Full guide, costs and failure modes: **`docs/DEPLOY.md`**.
 
 > ⚠️ **Do not regenerate the Heroku API key.** The same key is shared with the
 > `dream-schools` and `dreamneighborhood` agents; regenerating breaks both.
 
-### After deploying
+### Three things the deploy run corrected
 
-1. Report the app URL and the generated admin password.
-2. Consider `essential-1` Postgres before precomputing anything large — `essential-0` caps
-   at 10,000 rows and one precomputed metro exceeds that alone.
-3. Update this file's status, and the PR.
+1. **The app URL cannot be derived from the app name.** Heroku gives apps created since
+   2023 a random hostname suffix, so `https://<app>.herokuapp.com` does not resolve. The
+   deploy script polled that address, never got an answer, and failed a deployment that had
+   actually succeeded. It now reads `web_url` back from the platform.
+2. **`--top N` seeds the wrong feeds.** It ranks by bounding-box *area*, which measures the
+   ground a feed spans rather than the service it carries, so a national-park shuttle
+   outranks the New York subway. `--top 25` gave 25 feeds and 2,610 stops with no schedules
+   in any city the product serves. Seeding now runs the curated metro list in
+   `pipeline/load_calibration_gtfs.sh`: **69 feeds, 162,389 stops**. Times Square transit
+   went 79 → 100 as a direct result.
+3. **`essential-0` has no row limit.** It is capped at **1 GB of storage**; the 10,000-row
+   figure belonged to the retired `hobby-dev` tier. Actual usage after seeding is 17.3 MB
+   (1.7%), so no upgrade is needed. Check with `heroku pg:info`.
+
+### Live constraints worth knowing
+
+- **Heroku's router hard-caps a request at 30 s.** A cold lookup in an unmapped area can
+  exceed that and return `503 H12` — the smoke test fails on exactly this if it is the first
+  thing to touch an area. Re-run once the area is warm, or precompute it.
+- **The web dyno hits R14 (memory quota) on dense lookups.** `NODE_OPTIONS=
+  --max-old-space-size=384` is now set, because V8 otherwise sizes its heap to the host
+  rather than the 512 MB dyno and grows past the quota before doing a major GC.
+- **Fort Pierce precompute is running detached** (~2,800 cells, several hours, checkpointed
+  to `precompute_region`). Resume or re-run with:
+
+```bash
+heroku run:detached --app dream-walk-scores \
+  "python3 pipeline/precompute_grid.py --metro fort-pierce --spacing 200 \
+   --base-url https://dream-walk-scores-e1295d04a5c0.herokuapp.com"
+```
 
 ---
 
@@ -260,8 +282,26 @@ baseline, changing a public API contract, or touching a reference repo.
 
 ## Known gaps / next tasks
 
-- [ ] **Deploy** — the current task above.
+- [x] **Deploy** — done, see the section at the top.
 - [ ] Make the repository private (needs a human; agents can't change repo visibility).
+- [ ] **Evaluate serving geometry from Overture instead of Overpass.** `dreamneighborhood`
+      already holds the full Overture dataset in PostGIS via GeoDjango. Every latency
+      problem above — 3–20 s cold lookups, `503 H12`, the multi-hour precompute, the R14
+      pressure from parsing Overpass JSON — is a symptom of fetching geometry over HTTP per
+      cell, and a local spatial query removes it. The seam is small: `lib/osm/overpass.ts`
+      exposes only `fetchAmenities`, `fetchWalkNetwork` and `fetchTransit`, all returning
+      `OsmElement[]`, so an Overture provider is an adapter behind that interface with
+      Overpass retained as the fallback for uncovered areas.
+      **Do not swap the data source without re-calibrating.** The constants in
+      `lib/scoring/constants.ts` are tuned to OSM's way segmentation and tag vocabulary —
+      trap 1 below depends on `highway=service` being excludable, and Overture's
+      transportation theme segments and classifies roads differently. Reusing the OSM
+      thresholds against Overture geometry would silently reintroduce exactly the
+      intersection-density inversion that trap describes. Re-run `npm run calibrate` and
+      expect a separate constants set.
+      Note also the dependency direction: DN is meant to *consume* this service, so read
+      Overture from a replica or copy the tables in, rather than making the scoring service
+      depend on DN's runtime database.
 - [ ] Broaden GTFS coverage. 44 feeds cover the calibration metros; there are ~3,400 US
       feeds in the Mobility Database. `pipeline/load_gtfs.py --catalog` scales it up.
 - [ ] Bike Score still reads generous in quiet streetcar suburbs with no bike network —
@@ -273,4 +313,4 @@ baseline, changing a public API contract, or touching a reference repo.
 
 ---
 
-*Last updated 2026-07-26 by the agent that built the initial implementation (PR #1).*
+*Last updated 2026-07-26 by the agent that deployed to Heroku (PR #1).*
