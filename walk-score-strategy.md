@@ -895,13 +895,24 @@ be computed entirely from data we already have.
 
 ## 6.1 Patents and trademarks
 
-Covered in the summary. The practical position: **methodological divergence is both the
-better product and the better defence.** US 10,962,373's independent claims recite assigning
-a weighted value to each transit *access point* based on distance and service frequency —
-which is exactly what we do today. A cumulative-opportunity measure computes a fundamentally
-different quantity. The patent's own specification acknowledges the "transit shed" as an
-alternative embodiment, so this is not uncharted ground, but the *granted* claims are the
-frequency-weighting method. Get counsel; nothing here is legal advice.
+**Superseded — see `patent-claim-map.md`**, which enumerates the full nine-document portfolio
+and maps every independent claim. Three corrections to what this section originally said:
+
+- The portfolio is **seven live patents, not three**. The one that matters most,
+  `US 9,677,892` (expiring **2033-03-24**), was missed here entirely. It claims
+  batch-precomputing transit scores for many locations and caching them — which describes
+  `precompute_grid.py` and `score_cache`.
+- This section implied the "transit shed" was disclosed but unclaimed. **It is claimed**, in a
+  separate branch of the family: `US 9,195,953`, `US 9,964,410` and `US 10,317,219`. The
+  operative element in the broadest of them is emitting **an area**, so counting reachable
+  destinations is fine but rendering an isochrone polygon is not.
+- Conversely the exposure on the *walkability* patents is lower than implied: all seven
+  independent claims across `'422` and `'455` require a **population density metric**, which
+  the engine does not compute.
+
+The practical position still holds — methodological divergence is both the better product and
+the better defence — but the specific element to diverge on is per-stop distance × frequency
+weighting combined into a score. Get counsel; nothing here is legal advice.
 
 ## 6.2 ODbL — subtler than it looks
 
