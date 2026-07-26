@@ -91,8 +91,15 @@ heroku config:get ADMIN_PASSWORD --app dream-walk-scores
 - **The web dyno hits R14 (memory quota) on dense lookups.** `NODE_OPTIONS=
   --max-old-space-size=384` is now set, because V8 otherwise sizes its heap to the host
   rather than the 512 MB dyno and grows past the quota before doing a major GC.
-- **Fort Pierce precompute is running detached** (~2,800 cells, several hours, checkpointed
-  to `precompute_region`). Resume or re-run with:
+- **Precompute is throttled by that same 30 s cap, badly.** The first Fort Pierce run used
+  the default `--concurrency 3` and scored only **268 of 2,800 cells** in 20.5 minutes —
+  three workers competing for one 512 MB dyno and for public Overpass pushed most cold
+  cells past 30 s, so the router returned `503` and the job moved on. Re-running at
+  `--concurrency 1` is slower per pass but completes far more cells, and the job is
+  checkpointed to `precompute_region`, so repeated passes are cheap: already-cached cells
+  are skipped at ~100/s. Run several passes rather than one.
+- **Fort Pierce precompute is running detached** (~2,800 cells, checkpointed). Resume or
+  re-run with:
 
 ```bash
 heroku run:detached --app dream-walk-scores \
