@@ -1,0 +1,71 @@
+{
+  "name": "Dream Walk Scores",
+  "description": "Walk, Bike and Transit scores for any US address, computed from OpenStreetMap, GTFS and open Census data. REST + GraphQL API, embeddable widget, and a drop-in Walk Score API compatibility endpoint.",
+  "repository": "https://github.com/motormouthvis/dream-walk-scores",
+  "keywords": ["walkability", "walk-score", "openstreetmap", "gtfs", "postgis", "next", "real-estate"],
+  "stack": "heroku-24",
+  "buildpacks": [{ "url": "heroku/python" }, { "url": "heroku/nodejs" }],
+  "addons": [{ "plan": "heroku-postgresql:essential-0" }],
+  "scripts": {
+    "postdeploy": "python3 pipeline/load_gtfs.py --catalog --top 25"
+  },
+  "env": {
+    "PGSSLMODE": {
+      "description": "Force SSL for the managed Postgres connection.",
+      "value": "require"
+    },
+    "PUBLIC_BASE_URL": {
+      "description": "Public origin of this deployment, used in the links returned by the Walk Score compatibility endpoint. Leave blank to infer it from the request.",
+      "required": false
+    },
+    "ADMIN_PASSWORD": {
+      "description": "Enables the /admin operations dashboard. The dashboard is unavailable until this is set.",
+      "generator": "secret",
+      "required": false
+    },
+    "OPENAI_API_KEY": {
+      "description": "Optional. Enables AI-written 'why this score' summaries when a request passes ai=1. Scores themselves never depend on it; without a key the deterministic template is used.",
+      "required": false
+    },
+    "AI_EXPLAIN_MODEL": {
+      "description": "Model used for explanations. A small, cheap model is the right choice here — it is rewriting a fact sheet, not reasoning.",
+      "value": "gpt-4o-mini",
+      "required": false
+    },
+    "REQUIRE_API_KEY": {
+      "description": "Set to 1 to require an API key on every request. Left unset the API is open, which is what the sibling Dream products expect.",
+      "required": false
+    },
+    "STATIC_API_KEY": {
+      "description": "A single API key, for deployments that want one without managing the api_key table.",
+      "required": false
+    },
+    "ANON_RATE_LIMIT_PER_MINUTE": {
+      "description": "Per-IP request ceiling for unauthenticated callers.",
+      "value": "60",
+      "required": false
+    },
+    "SCORE_CELL_METERS": {
+      "description": "Cache grid resolution in metres. Larger cells raise the hit rate and lower cost; smaller cells give finer spatial resolution.",
+      "value": "25",
+      "required": false
+    },
+    "OVERPASS_ENDPOINTS": {
+      "description": "Comma-separated Overpass mirrors, tried in order. Point this at a self-hosted instance to remove the dependency on the public ones entirely.",
+      "required": false
+    }
+  },
+  "environments": {
+    "test": {
+      "scripts": {
+        "test": "npm run typecheck && npm test"
+      }
+    },
+    "review": {
+      "addons": ["heroku-postgresql:essential-0"],
+      "scripts": {
+        "postdeploy": "python3 pipeline/load_gtfs.py --catalog --metro Chicago --limit 4"
+      }
+    }
+  }
+}

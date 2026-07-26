@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Overridden per-partner by the embed surface via an inline style. */
+  --dws-accent: #1fa55f;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  @apply bg-white text-ink antialiased;
+}
+
+/* The embed iframe renders edge to edge inside the host page's chrome. */
+body.dws-embed {
+  @apply bg-transparent;
+}
+
+@layer components {
+  .dws-card {
+    @apply rounded-xl border border-gray-200 bg-white p-5 shadow-sm;
+  }
+
+  .dws-label {
+    @apply text-xs font-semibold uppercase tracking-wide text-ink-faint;
+  }
+}

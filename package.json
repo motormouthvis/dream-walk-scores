@@ -1,0 +1,42 @@
+{
+  "name": "dream-walk-scores",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dream Walk Scores — open-data Walk Score / Bike Score / Transit Score engine (OpenStreetMap + GTFS + Census), REST + GraphQL + embeddable widget.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "calibrate": "tsx scripts/calibrate.ts",
+    "validate": "tsx scripts/validate-scores.ts",
+    "inspect": "tsx scripts/inspect-point.ts"
+  },
+  "dependencies": {
+    "graphql": "^16.9.0",
+    "lucide-react": "^0.460.0",
+    "next": "^15.5.4",
+    "pg": "^8.13.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/pg": "^8.11.10",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.5.4",
+    "postcss": "^8.4.49",
+    "puppeteer-core": "^25.3.0",
+    "tailwindcss": "^3.4.15",
+    "tsx": "^4.23.1",
+    "typescript": "^5.6.3"
+  }
+}

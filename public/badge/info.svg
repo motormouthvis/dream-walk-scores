@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Returned as `more_info_icon` by the Walk Score compatibility endpoint, where callers
+  render it next to a link to the methodology.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="More information">
+  <circle cx="8" cy="8" r="7" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+  <circle cx="8" cy="4.6" r="1" fill="#6b7280"/>
+  <path d="M8 7v4.6" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round"/>
+</svg>
