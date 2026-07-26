@@ -46,14 +46,22 @@ export const MAX_RAW_POINTS = Object.values(CATEGORY_WEIGHTS)
  * instead. A piecewise-linear curve is used rather than a closed-form function because it
  * is trivial to reason about, trivial to re-calibrate against ground truth, and the
  * difference from a smooth curve is far smaller than the error in the underlying data.
+ *
+ * The steep drop between a quarter and half a mile is the single most important part of
+ * the model, and it is where a naive implementation goes wrong. Dense urban points score
+ * the same under almost any curve because everything is within five minutes; it is
+ * suburban points, where the shops are three quarters of a mile away, that separate a
+ * calibrated engine from a generous one. These anchors were fitted against the reference
+ * scores in `scripts/calibration-set.ts` — flattening them inflates suburban scores by
+ * twenty points or more.
  */
 export const DECAY_ANCHORS: [miles: number, weight: number][] = [
   [0.0, 1.0],
   [0.25, 1.0],
-  [0.5, 0.86],
-  [0.75, 0.67],
-  [1.0, 0.44],
-  [1.25, 0.2],
+  [0.5, 0.65],
+  [0.75, 0.4],
+  [1.0, 0.22],
+  [1.25, 0.09],
   [1.5, 0.0],
 ];
 
@@ -76,20 +84,27 @@ export const ANALYSIS_RADIUS_METERS = MAX_WALK_METERS;
  * Two places can have identical amenities and feel completely different to walk: a dense
  * grid with short blocks versus a subdivision of cul-de-sacs feeding one arterial. These
  * tables dock up to 10% for street networks that force pedestrians into long detours.
+ *
+ * The thresholds are calibrated against `networkShape`, which counts junctions on real
+ * streets only. That measure runs far lower than a naive count over every OSM way, and
+ * getting the scale wrong is subtle rather than obvious: Midtown Manhattan's grid of long
+ * east-west blocks works out to about 52 intersections per km², so a table written for
+ * all-ways densities penalises one of the most walkable places in the country as though
+ * it were sprawl.
  */
 export const INTERSECTION_DENSITY_PENALTIES: [maxPerSqKm: number, penalty: number][] = [
-  [60, 0.05],
-  [90, 0.03],
-  [120, 0.02],
-  [150, 0.01],
+  [15, 0.05],
+  [25, 0.03],
+  [35, 0.02],
+  [45, 0.01],
   [Infinity, 0.0],
 ];
 
 export const BLOCK_LENGTH_PENALTIES: [maxMeters: number, penalty: number][] = [
-  [60, 0.0],
-  [120, 0.01],
-  [150, 0.02],
-  [200, 0.03],
+  [100, 0.0],
+  [140, 0.01],
+  [180, 0.02],
+  [230, 0.03],
   [Infinity, 0.05],
 ];
 
@@ -103,11 +118,11 @@ export const BLOCK_LENGTH_PENALTIES: [maxMeters: number, penalty: number][] = [
  * full routing.
  */
 export const CIRCUITY_BY_INTERSECTION_DENSITY: [maxPerSqKm: number, factor: number][] = [
-  [30, 1.65],
-  [60, 1.5],
-  [90, 1.38],
-  [120, 1.3],
-  [150, 1.25],
+  [10, 1.65],
+  [20, 1.5],
+  [30, 1.38],
+  [40, 1.3],
+  [50, 1.25],
   [Infinity, 1.2],
 ];
 
@@ -160,6 +175,23 @@ export const BIKE_COMPONENT_WEIGHTS = {
   destinations: 0.3,
   connectivity: 0.15,
 } as const;
+
+/**
+ * Distance-decay curve for cycling, in the same format as `DECAY_ANCHORS`.
+ *
+ * A bicycle turns a twenty-minute walk into a five-minute ride, so destinations that are
+ * marginal on foot are genuinely convenient on a bike. The curve stays flat out to a mile
+ * and only begins to fall after that, which is why a suburb with a supermarket
+ * three-quarters of a mile away can be a poor place to walk and a perfectly good place to
+ * ride.
+ */
+export const BIKE_DECAY_ANCHORS: [miles: number, weight: number][] = [
+  [0.0, 1.0],
+  [1.0, 1.0],
+  [1.5, 0.8],
+  [2.0, 0.5],
+  [3.0, 0.0],
+];
 
 /**
  * Metres of lane within the analysis radius that saturate the infrastructure sub-score.

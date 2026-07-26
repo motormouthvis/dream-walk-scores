@@ -88,6 +88,40 @@ function scoreCategory(category: AmenityCategory, candidates: ScorableAmenity[])
   };
 }
 
+/**
+ * Fraction of the 15 available category points that `amenities` earns under an arbitrary
+ * decay curve, in [0,1].
+ *
+ * Shared by Walk Score and by the Bike Score destinations component, which uses the same
+ * category weights over a flatter curve. Reusing the weighting is deliberate: what counts
+ * as somewhere worth going does not change with the mode of travel, only how far away it
+ * can be.
+ */
+export function categoryPointsRatio(
+  amenities: ScorableAmenity[],
+  decay: (meters: number) => number
+): number {
+  const byCategory = new Map<AmenityCategory, { value: number }[]>();
+  for (const amenity of amenities) {
+    const value = decay(amenity.walkMeters) * amenity.quality;
+    if (value <= 0) continue;
+    const bucket = byCategory.get(amenity.category);
+    if (bucket) bucket.push({ value });
+    else byCategory.set(amenity.category, [{ value }]);
+  }
+
+  let total = 0;
+  for (const [category, values] of byCategory) {
+    const weights = CATEGORY_WEIGHTS[category];
+    values.sort((a, b) => b.value - a.value);
+    for (let i = 0; i < Math.min(weights.length, values.length); i++) {
+      total += weights[i] * values[i].value;
+    }
+  }
+
+  return Math.min(1, total / MAX_RAW_POINTS);
+}
+
 export function calculateWalkScore(input: WalkScoreInput): WalkScoreDetail {
   const byCategory = new Map<AmenityCategory, ScorableAmenity[]>();
   for (const category of AMENITY_CATEGORIES) byCategory.set(category, []);

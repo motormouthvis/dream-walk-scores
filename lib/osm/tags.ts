@@ -181,6 +181,35 @@ export const WALKABLE_HIGHWAYS = [
   "tertiary_link",
 ];
 
+/**
+ * Highway values that count as an actual street when measuring how connected a place is.
+ *
+ * Deliberately excludes `service`, which in OSM covers parking aisles, driveways and
+ * alleys. Including them is the classic mistake: a big-box store's parking lot contains
+ * dozens of junctions, so a strip-mall suburb measures denser than Manhattan and every
+ * connectivity-derived number comes out backwards. Footways and paths are excluded for
+ * the same reason — they are real for routing, but a park's path network is not evidence
+ * of a fine-grained street grid.
+ */
+export const STREET_HIGHWAYS = [
+  "primary",
+  "secondary",
+  "tertiary",
+  "residential",
+  "unclassified",
+  "living_street",
+  "pedestrian",
+  "primary_link",
+  "secondary_link",
+  "tertiary_link",
+];
+
+const STREET_SET = new Set(STREET_HIGHWAYS);
+
+export function isStreet(highway: string | undefined): boolean {
+  return highway !== undefined && STREET_SET.has(highway);
+}
+
 /** Highway values usable by a bicycle. Excludes footways and steps, includes cycleway. */
 export const BIKEABLE_HIGHWAYS = [
   "primary",

@@ -23,17 +23,25 @@ import type { BikeInfrastructure, BikeScoreDetail, HillMetrics } from "@/lib/typ
 export interface BikeScoreInput {
   infrastructure: BikeInfrastructure;
   hills: HillMetrics;
-  /** Count of scoreable amenities within the bike analysis radius. */
-  destinationCount: number;
-  /** Intersections per square kilometre. */
+  /**
+   * Fraction of the available amenity-category points earned under the cycling decay
+   * curve, in [0,1]. A distance-weighted measure rather than a raw count: a suburb ringed
+   * by big-box retail has plenty of destinations, but their distance is the whole point.
+   */
+  destinationRatio: number;
+  /** Intersections per square kilometre, measured over the street network only. */
   intersectionDensity: number | null;
 }
 
-/** Amenity count within the bike radius that saturates the destinations sub-score. */
-const DESTINATION_SATURATION = 150;
-
-/** Intersection density that saturates the connectivity sub-score. */
-const CONNECTIVITY_SATURATION = 120;
+/**
+ * Intersection density that saturates the connectivity sub-score.
+ *
+ * Measured over real streets — service roads and parking aisles are excluded upstream in
+ * `networkShape` — so the numbers are far lower, and far more meaningful, than a naive
+ * count over every OSM way. 50 per km² is a thoroughly connected grid: Midtown Manhattan
+ * measures about 52.
+ */
+const CONNECTIVITY_SATURATION = 50;
 
 function clamp100(value: number): number {
   return Math.max(0, Math.min(100, value));
@@ -76,8 +84,8 @@ export function hillScore(hills: HillMetrics): number | null {
   return clamp100(100 * (1 - (grade - BIKE_GRADE_FLAT_PCT) / span));
 }
 
-export function destinationScore(count: number): number {
-  return clamp100(100 * Math.sqrt(Math.min(1, count / DESTINATION_SATURATION)));
+export function destinationScore(ratio: number): number {
+  return clamp100(100 * Math.max(0, Math.min(1, ratio)));
 }
 
 export function connectivityScore(intersectionDensity: number | null): number | null {
@@ -89,7 +97,7 @@ export function calculateBikeScore(input: BikeScoreInput): BikeScoreDetail {
   const components = {
     infrastructure: infrastructureScore(input.infrastructure),
     hills: hillScore(input.hills),
-    destinations: destinationScore(input.destinationCount),
+    destinations: destinationScore(input.destinationRatio),
     connectivity: connectivityScore(input.intersectionDensity),
   };
 

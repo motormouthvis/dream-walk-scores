@@ -1,4 +1,5 @@
 import {
+  BIKE_DECAY_ANCHORS,
   BLOCK_LENGTH_PENALTIES,
   CIRCUITY_BY_INTERSECTION_DENSITY,
   DECAY_ANCHORS,
@@ -7,21 +8,17 @@ import {
   METERS_PER_MILE,
 } from "@/lib/scoring/constants";
 
-/**
- * Distance-decay weight in [0,1] for an amenity `meters` away on foot.
- *
- * Linear interpolation across the anchor points in `DECAY_ANCHORS`.
- */
-export function decayWeight(meters: number): number {
+/** Linear interpolation across a (miles, weight) anchor table. */
+function interpolate(anchors: [number, number][], meters: number): number {
   if (!Number.isFinite(meters) || meters < 0) return 0;
   const miles = meters / METERS_PER_MILE;
 
-  const last = DECAY_ANCHORS[DECAY_ANCHORS.length - 1];
+  const last = anchors[anchors.length - 1];
   if (miles >= last[0]) return 0;
 
-  for (let i = 1; i < DECAY_ANCHORS.length; i++) {
-    const [x0, y0] = DECAY_ANCHORS[i - 1];
-    const [x1, y1] = DECAY_ANCHORS[i];
+  for (let i = 1; i < anchors.length; i++) {
+    const [x0, y0] = anchors[i - 1];
+    const [x1, y1] = anchors[i];
     if (miles <= x1) {
       if (x1 === x0) return y1;
       const t = (miles - x0) / (x1 - x0);
@@ -29,6 +26,16 @@ export function decayWeight(meters: number): number {
     }
   }
   return 0;
+}
+
+/** Distance-decay weight in [0,1] for an amenity `meters` away on foot. */
+export function decayWeight(meters: number): number {
+  return interpolate(DECAY_ANCHORS, meters);
+}
+
+/** Distance-decay weight in [0,1] for an amenity `meters` away by bicycle. */
+export function bikeDecayWeight(meters: number): number {
+  return interpolate(BIKE_DECAY_ANCHORS, meters);
 }
 
 /** Look up a value from an ascending `[threshold, value]` table. */

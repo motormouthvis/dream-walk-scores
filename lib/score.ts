@@ -12,11 +12,12 @@ import { buildGraph, dijkstra, NodeIndex, networkShape, snapToNetwork, type Grap
 import { elementPoint, fetchAmenities, fetchTransit, fetchWalkNetwork } from "@/lib/osm/overpass";
 import { classify, displayName } from "@/lib/osm/tags";
 import { ANALYSIS_RADIUS_METERS, MAX_WALK_METERS } from "@/lib/scoring/constants";
-import { circuityFactor } from "@/lib/scoring/decay";
+import { bikeDecayWeight, circuityFactor } from "@/lib/scoring/decay";
 import { calculateBikeScore } from "@/lib/scoring/bike";
 import { calculateTransitScore } from "@/lib/scoring/transit";
-import { calculateWalkScore, type ScorableAmenity } from "@/lib/scoring/walk";
+import { calculateWalkScore, categoryPointsRatio, type ScorableAmenity } from "@/lib/scoring/walk";
 import { routesNearPoint } from "@/lib/transit/gtfs";
+import { mergeTransitSources } from "@/lib/transit/merge";
 import { osmRoutesNearPoint } from "@/lib/transit/osm";
 import { buildSummary } from "@/lib/explain";
 import type {
@@ -134,16 +135,20 @@ export async function scorePoint(lat: number, lon: number, options: ScoreOptions
   });
 
   // ---- Transit -------------------------------------------------------------
-  // GTFS is authoritative because it carries schedules. OSM only tells us a route exists.
+  // GTFS is authoritative where it exists because it carries schedules; OSM fills the
+  // gaps left by partial feed coverage. See `lib/transit/merge.ts`.
   const gtfs = await routesNearPoint(lat, lon, (pLat, pLon, crow) => walkDistance(pLat, pLon, crow).meters).catch(
     () => null
   );
-  const transitInput =
-    gtfs && gtfs.hasCoverage
-      ? gtfs
-      : osmRoutesNearPoint(transitResult?.elements ?? [], lat, lon, (pLat, pLon, crow) => walkDistance(pLat, pLon, crow).meters);
 
-  const transit = calculateTransitScore(transitInput);
+  const osmTransit = osmRoutesNearPoint(
+    transitResult?.elements ?? [],
+    lat,
+    lon,
+    (pLat, pLon, crow) => walkDistance(pLat, pLon, crow).meters
+  );
+
+  const transit = calculateTransitScore(mergeTransitSources(gtfs, osmTransit));
 
   // ---- Bike ----------------------------------------------------------------
   const infrastructure = bikeInfrastructureFromGraph(graph, lat, lon, ANALYSIS_RADIUS_METERS);
@@ -154,7 +159,7 @@ export async function scorePoint(lat: number, lon: number, options: ScoreOptions
   const bike = calculateBikeScore({
     infrastructure,
     hills,
-    destinationCount: amenities.length,
+    destinationRatio: categoryPointsRatio(amenities, bikeDecayWeight),
     intersectionDensity: shape.intersectionDensity,
   });
 

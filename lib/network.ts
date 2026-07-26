@@ -13,7 +13,7 @@
 
 import { haversineMeters, pointToSegmentMeters } from "@/lib/geo";
 import type { OsmElement } from "@/lib/osm/overpass";
-import { bikeStress, type BikeStress } from "@/lib/osm/tags";
+import { bikeStress, isStreet, type BikeStress } from "@/lib/osm/tags";
 
 export interface GraphNode {
   lat: number;
@@ -28,6 +28,8 @@ export interface GraphEdge {
   meters: number;
   stress: BikeStress;
   highway: string;
+  /** True for real streets; false for service roads, driveways, footways and paths. */
+  street: boolean;
 }
 
 export interface Graph {
@@ -59,6 +61,7 @@ export function buildGraph(elements: OsmElement[]): Graph {
     if (el.type !== "way" || !el.geometry || el.geometry.length < 2) continue;
     const highway = el.tags?.["highway"] ?? "unknown";
     const stress = bikeStress(el.tags);
+    const street = isStreet(highway);
 
     for (let i = 1; i < el.geometry.length; i++) {
       const p = el.geometry[i - 1];
@@ -72,7 +75,7 @@ export function buildGraph(elements: OsmElement[]): Graph {
       if (a === b) continue;
 
       const edgeId = edges.length;
-      edges.push({ a, b, meters, stress, highway });
+      edges.push({ a, b, meters, stress, highway, street });
       nodes[a].edges.push(edgeId);
       nodes[b].edges.push(edgeId);
     }
@@ -309,25 +312,44 @@ export interface NetworkShape {
 /**
  * Intersection density and mean block length within `radiusMeters` of a point.
  *
- * An "intersection" is a node where three or more ways meet — a T junction counts, a bend
- * in the road does not. A "block" is the run of street between two consecutive
- * intersections, which we recover by walking the degree-2 chains between them.
+ * Measured over the *street* subgraph only. Parking aisles, driveways, alleys and park
+ * footpaths are all real ways that a pedestrian can walk on — and they stay in the
+ * routing graph for exactly that reason — but counting their junctions as intersections
+ * makes a shopping-mall parking lot look like a dense urban grid and inverts every
+ * connectivity metric derived from it.
+ *
+ * An "intersection" is a node where three or more streets meet: a T junction counts, a
+ * bend in the road does not. A "block" is the run of street between two consecutive
+ * intersections, recovered by walking the degree-2 chains between them.
  */
 export function networkShape(graph: Graph, lat: number, lon: number, radiusMeters: number): NetworkShape {
   const withinRadius = (i: number): boolean =>
     haversineMeters(lat, lon, graph.nodes[i].lat, graph.nodes[i].lon) <= radiusMeters;
 
+  // Street-only adjacency, built once and reused by both metrics below.
+  const streetDegree = new Uint16Array(graph.nodes.length);
+  const streetEdges: number[][] = Array.from({ length: graph.nodes.length }, () => []);
+
+  for (let i = 0; i < graph.edges.length; i++) {
+    const e = graph.edges[i];
+    if (!e.street) continue;
+    streetDegree[e.a] += 1;
+    streetDegree[e.b] += 1;
+    streetEdges[e.a].push(i);
+    streetEdges[e.b].push(i);
+  }
+
   let intersectionCount = 0;
   const isIntersection = new Uint8Array(graph.nodes.length);
 
   for (let i = 0; i < graph.nodes.length; i++) {
-    // `edges.length` counts incident edge stubs; a mid-way vertex has exactly 2.
-    if (graph.nodes[i].edges.length >= 3) {
+    if (streetDegree[i] >= 3) {
       isIntersection[i] = 1;
       if (withinRadius(i)) intersectionCount += 1;
     }
   }
 
+  // Total walkable length keeps every way, since it describes what a pedestrian can use.
   let wayMeters = 0;
   for (const e of graph.edges) {
     if (withinRadius(e.a) || withinRadius(e.b)) wayMeters += e.meters;
@@ -336,14 +358,13 @@ export function networkShape(graph: Graph, lat: number, lon: number, radiusMeter
   const areaSqKm = (Math.PI * radiusMeters * radiusMeters) / 1_000_000;
   const intersectionDensity = areaSqKm > 0 ? intersectionCount / areaSqKm : null;
 
-  // Walk each degree-2 chain from every intersection to the next one.
   const blockLengths: number[] = [];
   const visitedEdge = new Uint8Array(graph.edges.length);
 
   for (let start = 0; start < graph.nodes.length; start++) {
     if (!isIntersection[start] || !withinRadius(start)) continue;
 
-    for (const firstEdge of graph.nodes[start].edges) {
+    for (const firstEdge of streetEdges[start]) {
       if (visitedEdge[firstEdge]) continue;
 
       let edgeId = firstEdge;
@@ -360,10 +381,10 @@ export function networkShape(graph: Graph, lat: number, lon: number, radiusMeter
         const next = e.a === current ? e.b : e.a;
 
         // Reached another intersection, a dead end, or ran too far — the block ends.
-        if (isIntersection[next] || graph.nodes[next].edges.length !== 2) break;
+        if (isIntersection[next] || streetDegree[next] !== 2) break;
         if (++guard > 500) break;
 
-        const continuation = graph.nodes[next].edges.find((id) => id !== edgeId);
+        const continuation = streetEdges[next].find((id) => id !== edgeId);
         if (continuation === undefined) break;
         edgeId = continuation;
         current = next;
