@@ -332,6 +332,37 @@ The set is deliberately weighted away from city centres. A calibration set full 
 produces an engine that is excellent in Manhattan and useless in the places most listings
 actually are.
 
+### Current accuracy
+
+Measured against published reference scores, with 44 GTFS feeds loaded covering the
+calibration metros:
+
+| | Mean abs. error | Bias | Correlation | Within 10 | Within 20 |
+| --- | --- | --- | --- | --- | --- |
+| **Walk** | 6.2 | −1.3 | 0.927 | 82% | 97% |
+| **Bike** | 11.0 | +2.8 | 0.822 | 61% | 87% |
+| **Transit** | 13.3 | −10.1 | 0.892 | 42% | 73% |
+
+Where the remaining error sits, and why:
+
+- **Walk** is the strongest and the one that matters most. Residual error concentrates in
+  areas where OpenStreetMap amenity coverage is visibly thinner than reality; those points
+  are also the ones flagged as lower confidence, so the two signals agree.
+- **Bike** is systematically generous in quiet, well-connected streetcar suburbs — places
+  with plenty of low-stress streets and no actual bike network. Weighting infrastructure at
+  40% took most of this out; what remains is that our low-stress street measure still gives
+  more credit than the reference does.
+- **Transit** tracks well in rank order (r = 0.89) but reads low on average, and the reason
+  is coverage rather than formula: every point where a metro's feeds are fully loaded lands
+  within a few points, and the negative bias comes almost entirely from metros where a feed
+  is missing or the agency splits service across feeds we have not ingested. Loading more
+  feeds moves this without touching the scoring.
+
+For reference, the first working version of the engine scored: Walk 9.0 MAE / r 0.878,
+Bike 15.7 MAE / r 0.623, Transit 32.6 MAE / r 0.739. The gains came from the three
+corrections described above — street-only connectivity measurement, the two-part decay
+curve, and merging transit sources rather than choosing between them.
+
 Run it after any change to `lib/scoring/constants.ts`:
 
 ```bash

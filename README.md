@@ -254,9 +254,17 @@ All deterministic. AI writes explanations, never scores.
 ### Accuracy
 
 Measured against published reference scores across a 38-point set spanning urban cores
-through rural addresses — see `scripts/calibration-set.ts`. Walk Score tracks reference
-values closely; Transit Score accuracy depends on GTFS coverage for the metro in question
-and degrades gracefully to OpenStreetMap where a feed has not been loaded.
+through rural addresses (`scripts/calibration-set.ts`), with 44 GTFS feeds loaded:
+
+| | Mean abs. error | Bias | Correlation | Within 10 pts |
+| --- | --- | --- | --- | --- |
+| Walk | 6.2 | −1.3 | 0.927 | 82% |
+| Bike | 11.0 | +2.8 | 0.822 | 61% |
+| Transit | 13.3 | −10.1 | 0.892 | 42% |
+
+Transit's negative bias is a coverage effect rather than a formula problem: metros whose
+feeds are fully loaded land within a few points, and loading more feeds moves the number
+without touching the scoring.
 
 Re-run `npm run calibrate` after touching `lib/scoring/constants.ts`.
 
