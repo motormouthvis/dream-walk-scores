@@ -78,8 +78,10 @@ heroku config:get ADMIN_PASSWORD --app dream-walk-scores
    `pipeline/load_calibration_gtfs.sh`: **69 feeds, 162,389 stops**. Times Square transit
    went 79 → 100 as a direct result.
 3. **`essential-0` has no row limit.** It is capped at **1 GB of storage**; the 10,000-row
-   figure belonged to the retired `hobby-dev` tier. Actual usage after seeding is 17.3 MB
-   (1.7%), so no upgrade is needed. Check with `heroku pg:info`.
+   figure belonged to the retired `hobby-dev` tier. Usage was 17.3 MB right after seeding
+   and 88.7 MB (8.7%) once the precompute began filling `score_cache`, so no upgrade is
+   needed — but check `heroku pg:info` before precomputing further metros. `essential-1`
+   ($9, 10 GB) is a one-command upgrade if the data size ever approaches the cap.
 
 ### Live constraints worth knowing
 
