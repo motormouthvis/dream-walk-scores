@@ -197,20 +197,21 @@ Overrides go on the script tag: `data-accent-color`, `data-position`, `data-addr
 
 ## Deployment
 
-Heroku, with the Python and Node buildpacks. `app.json` is complete enough for review apps.
+Heroku, with the Python and Node buildpacks. Full guide, including costs and
+troubleshooting: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ```bash
-heroku create dream-walk-scores
-heroku buildpacks:add heroku/python
-heroku buildpacks:add heroku/nodejs
-heroku addons:create heroku-postgresql:essential-0
-heroku config:set PGSSLMODE=require ADMIN_PASSWORD="$(openssl rand -hex 24)"
-git push heroku main
-
-# Schema runs automatically on release. Then load transit and warm a metro:
-heroku run "python3 pipeline/load_gtfs.py --catalog --top 25"
-heroku run "python3 pipeline/precompute_grid.py --metro chicago --base-url https://<app>.herokuapp.com"
+heroku login                        # or: export HEROKU_API_KEY=...
+bash scripts/deploy-heroku.sh
 ```
+
+Creates the app, sets buildpacks, provisions Postgres, deploys, loads transit feeds and
+prints the URLs. About ten minutes, and safe to re-run. Roughly $12/month to operate.
+
+Verify any deployment with `node scripts/smoke.mjs https://your-app.herokuapp.com` — 68
+assertions across every public surface.
+
+`app.json` is complete enough for review apps.
 
 Every environment variable is optional and documented in `.env.example`. The ones that
 matter:
