@@ -63,13 +63,22 @@ export function isInUnitedStates(lat: number, lon: number): boolean {
 
 /**
  * Snap a coordinate to a fixed grid, returning the cell's south-west corner.
- * Used as a cache key so that two lookups a few metres apart share one computation.
+ *
+ * Used as a cache key so that two lookups a few metres apart share one computation, which
+ * only works if the grid is genuinely fixed. Cell width therefore has to be derived from
+ * the *snapped* latitude rather than the input latitude: metres per degree of longitude
+ * varies with latitude, so sizing the cell from the raw input gives two neighbouring
+ * points slightly different grid spacings and lands them in different cells. That failure
+ * is invisible — every answer is still correct — but it quietly destroys the cache hit
+ * rate the cost model depends on.
  */
 export function snapToGrid(lat: number, lon: number, cellMeters: number): { lat: number; lon: number } {
   const dLat = cellMeters / METERS_PER_DEGREE_LAT;
-  const dLon = cellMeters / Math.max(metersPerDegreeLon(lat), 1);
+  const snappedLat = Math.floor(lat / dLat) * dLat;
+
+  const dLon = cellMeters / Math.max(metersPerDegreeLon(snappedLat), 1);
   return {
-    lat: Math.floor(lat / dLat) * dLat,
+    lat: snappedLat,
     lon: Math.floor(lon / dLon) * dLon,
   };
 }

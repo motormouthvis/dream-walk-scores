@@ -105,14 +105,24 @@ def select_feeds(
             if metro.lower() not in haystack:
                 continue
 
-        url = (row.get("urls.latest") or row.get("urls.direct_download") or "").strip()
-        if not url:
+        # The catalog's hosted mirror is preferred — it is stable and always reachable —
+        # but entries do go missing from it, so keep the operator's own URL as a fallback
+        # rather than dropping the feed. Losing SFMTA this way costs San Francisco most of
+        # its Transit Score.
+        urls = [
+            (row.get("urls.latest") or "").strip(),
+            (row.get("urls.direct_download") or "").strip(),
+        ]
+        urls = [u for u in urls if u]
+        if not urls:
             continue
+        url = urls[0]
         # Feeds behind an API key are not free to us; skip rather than fail later.
         if (row.get("urls.authentication_type") or "").strip() not in {"", "0"}:
             continue
 
         row["_url"] = url
+        row["_fallback_urls"] = urls[1:]
         selected.append(row)
 
     if top:
@@ -283,12 +293,24 @@ def parse_gtfs_time(value: str) -> int | None:
 # ---------------------------------------------------------------------------
 
 
-def ingest_feed(conn, feed_key: str, url: str, agency_hint: str | None) -> bool:
-    log(f"  downloading {url}")
-    try:
-        payload = fetch(url)
-    except Exception as exc:  # noqa: BLE001 — one bad feed must not stop the run
-        log(f"  download failed: {exc}")
+def ingest_feed(
+    conn,
+    feed_key: str,
+    url: str,
+    agency_hint: str | None,
+    fallback_urls: list[str] | None = None,
+) -> bool:
+    payload = None
+    for candidate in [url, *(fallback_urls or [])]:
+        log(f"  downloading {candidate}")
+        try:
+            payload = fetch(candidate)
+            url = candidate
+            break
+        except Exception as exc:  # noqa: BLE001 — one bad feed must not stop the run
+            log(f"  download failed: {exc}")
+
+    if payload is None:
         return False
 
     try:
@@ -505,7 +527,9 @@ def main() -> int:
                 key = f"mdb:{feed.get('mdb_source_id')}"
                 log(f"[{index}/{len(feeds)}] {feed.get('provider')} ({feed.get('location.municipality')})")
                 try:
-                    if ingest_feed(conn, key, feed["_url"], feed.get("provider")):
+                    if ingest_feed(
+                        conn, key, feed["_url"], feed.get("provider"), feed.get("_fallback_urls")
+                    ):
                         loaded += 1
                     else:
                         failed += 1

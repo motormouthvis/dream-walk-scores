@@ -1,0 +1,12 @@
+# Dependencies for the data pipeline (pipeline/*.py).
+#
+# Deliberately minimal. The heavy geospatial stack — GeoPandas, OSMnx, Pandana, Shapely —
+# is not here on purpose: all the geometry we need is either done by PostGIS in the
+# database or by ~400 lines of TypeScript in lib/network.ts and lib/geo.ts. Adding those
+# packages would take the Heroku slug from tens of megabytes to several hundred, slow every
+# deploy, and buy nothing the service actually uses.
+#
+# If a future job genuinely needs them (a national OSM extract, say), it belongs on a
+# temporary worker VM with its own requirements file rather than in the web slug.
+
+psycopg2-binary==2.9.10

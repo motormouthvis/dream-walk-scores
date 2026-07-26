@@ -73,50 +73,78 @@ class OverpassError extends Error {
   }
 }
 
+/**
+ * How many times to work through the whole mirror list before giving up.
+ *
+ * The public Overpass instances are busy shared infrastructure and a simultaneous blip
+ * across all of them is common — during a calibration run it happens several times an
+ * hour. One pass over the mirrors is not enough: a failed pass returns a null score, which
+ * is a far worse outcome than waiting a few seconds.
+ */
+const MAX_PASSES = Number(process.env.OVERPASS_MAX_PASSES ?? 3);
+const BACKOFF_BASE_MS = Number(process.env.OVERPASS_BACKOFF_MS ?? 2_000);
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function attempt(endpoint: string, query: string): Promise<OverpassResult> {
+  const started = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": USER_AGENT,
+      },
+      body: new URLSearchParams({ data: query }).toString(),
+      signal: controller.signal,
+    });
+
+    overpassStats.requests += 1;
+
+    if (!response.ok) {
+      throw new OverpassError(`${endpoint} returned ${response.status}`, response.status);
+    }
+
+    const json = (await response.json()) as { elements?: OsmElement[] };
+    return { elements: json.elements ?? [], fetchedAt: new Date().toISOString() };
+  } finally {
+    clearTimeout(timer);
+    overpassStats.totalMs += Date.now() - started;
+  }
+}
+
 async function runQuery(query: string): Promise<OverpassResult> {
   let lastError: unknown = null;
 
-  for (const endpoint of ENDPOINTS) {
-    const started = Date.now();
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "User-Agent": USER_AGENT,
-        },
-        body: new URLSearchParams({ data: query }).toString(),
-        signal: controller.signal,
-      }).finally(() => clearTimeout(timer));
-
-      overpassStats.requests += 1;
-      overpassStats.totalMs += Date.now() - started;
-
-      // 429 and 504 are Overpass telling us to back off; try the next mirror immediately
-      // rather than sleeping, since the mirrors have independent budgets.
-      if (response.status === 429 || response.status === 504) {
-        lastError = new OverpassError(`rate limited by ${endpoint}`, response.status);
-        continue;
+  for (let pass = 0; pass < MAX_PASSES; pass++) {
+    // Mirrors have independent rate-limit budgets, so on the first pass move straight to
+    // the next one rather than sleeping.
+    for (const endpoint of ENDPOINTS) {
+      try {
+        return await attempt(endpoint, query);
+      } catch (error) {
+        lastError = error;
       }
-      if (!response.ok) {
-        lastError = new OverpassError(`${endpoint} returned ${response.status}`, response.status);
-        continue;
-      }
+    }
 
-      const json = (await response.json()) as { elements?: OsmElement[] };
-      return { elements: json.elements ?? [], fetchedAt: new Date().toISOString() };
-    } catch (error) {
-      overpassStats.totalMs += Date.now() - started;
-      lastError = error;
+    if (pass < MAX_PASSES - 1) {
+      // Exponential backoff with jitter, so a burst of concurrent scoring requests does
+      // not retry in lockstep and re-create the overload it is backing off from.
+      const delay = BACKOFF_BASE_MS * Math.pow(2, pass) * (0.5 + Math.random());
+      await sleep(delay);
     }
   }
 
   overpassStats.failures += 1;
   throw new OverpassError(
-    `all Overpass endpoints failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`
+    `all Overpass endpoints failed after ${MAX_PASSES} passes: ${
+      lastError instanceof Error ? lastError.message : String(lastError)
+    }`
   );
 }
 

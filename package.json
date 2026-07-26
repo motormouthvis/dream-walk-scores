@@ -12,7 +12,10 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "calibrate": "tsx scripts/calibrate.ts",
+    "validate": "tsx scripts/validate-scores.ts",
+    "inspect": "tsx scripts/inspect-point.ts"
   },
   "dependencies": {
     "graphql": "^16.9.0",

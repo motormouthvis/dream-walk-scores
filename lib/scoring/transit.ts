@@ -7,7 +7,13 @@
  * frequency, and how far you have to walk to catch it.
  */
 
-import { TRANSIT_BANDS, TRANSIT_MAX_WALK_METERS, TRANSIT_MODE_WEIGHTS, TRANSIT_SATURATION_POINTS } from "@/lib/scoring/constants";
+import {
+  TRANSIT_BANDS,
+  TRANSIT_FULL_WEIGHT_METERS,
+  TRANSIT_MAX_WALK_METERS,
+  TRANSIT_MODE_WEIGHTS,
+  TRANSIT_SATURATION_POINTS,
+} from "@/lib/scoring/constants";
 import { band } from "@/lib/scoring/decay";
 import type { TransitMode, TransitRouteHit, TransitScoreDetail } from "@/lib/types";
 
@@ -35,14 +41,16 @@ export interface TransitScoreInput {
 /**
  * Walking-distance decay for transit.
  *
- * Distinct from the amenity curve: people will walk further for a train than for a
- * sandwich, but the tolerance falls off sharply past a quarter mile and hits zero at half
- * a mile. Anything inside 200 m is effectively at your door.
+ * Distinct from the amenity curve: people will walk considerably further for a train than
+ * for a sandwich. Full value out to 400 m, then falling linearly to nothing at three
+ * quarters of a mile.
  */
 export function transitDecay(meters: number): number {
-  if (meters <= 200) return 1;
+  if (meters <= TRANSIT_FULL_WEIGHT_METERS) return 1;
   if (meters >= TRANSIT_MAX_WALK_METERS) return 0;
-  return 1 - (meters - 200) / (TRANSIT_MAX_WALK_METERS - 200);
+  return (
+    1 - (meters - TRANSIT_FULL_WEIGHT_METERS) / (TRANSIT_MAX_WALK_METERS - TRANSIT_FULL_WEIGHT_METERS)
+  );
 }
 
 /**

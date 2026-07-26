@@ -47,19 +47,27 @@ export const MAX_RAW_POINTS = Object.values(CATEGORY_WEIGHTS)
  * is trivial to reason about, trivial to re-calibrate against ground truth, and the
  * difference from a smooth curve is far smaller than the error in the underlying data.
  *
- * The steep drop between a quarter and half a mile is the single most important part of
- * the model, and it is where a naive implementation goes wrong. Dense urban points score
- * the same under almost any curve because everything is within five minutes; it is
- * suburban points, where the shops are three quarters of a mile away, that separate a
- * calibrated engine from a generous one. These anchors were fitted against the reference
- * scores in `scripts/calibration-set.ts` — flattening them inflates suburban scores by
- * twenty points or more.
+ * The shape between a quarter mile and a mile is the most consequential part of the model,
+ * and the two ends of it do different jobs.
+ *
+ * The gentle section out to half a mile governs *urban* scores, because in a dense
+ * neighbourhood the first amenity in each category is always close and it is the later
+ * slots — the fourth restaurant, the third shop — that sit at 400 to 700 m. Steepening
+ * here pushes city scores down by ten points or more.
+ *
+ * The sharp fall from three quarters of a mile onward governs *suburban* scores, where
+ * the nearest supermarket is the thing sitting at that distance. Flattening here inflates
+ * suburban scores by twenty points or more.
+ *
+ * These anchors were fitted against the reference scores in `scripts/calibration-set.ts`.
+ * Re-run `npm run calibrate` after touching them.
  */
 export const DECAY_ANCHORS: [miles: number, weight: number][] = [
   [0.0, 1.0],
   [0.25, 1.0],
-  [0.5, 0.65],
-  [0.75, 0.4],
+  [0.4, 0.9],
+  [0.5, 0.8],
+  [0.75, 0.45],
   [1.0, 0.22],
   [1.25, 0.09],
   [1.5, 0.0],
@@ -148,8 +156,20 @@ export const TRANSIT_MODE_WEIGHTS: Record<string, number> = {
   unknown: 1.0,
 };
 
-/** Stops further than this from the point are not counted. */
-export const TRANSIT_MAX_WALK_METERS = 0.5 * METERS_PER_MILE;
+/**
+ * Stops further than this from the point are not counted.
+ *
+ * Three quarters of a mile, not the half mile that transit-planning rules of thumb
+ * usually quote. Those figures describe a typical catchment, not the point at which a
+ * station stops being useful, and a hard cut at half a mile measurably understates
+ * neighbourhoods built around a single rail station a ten-minute walk away — Park Slope
+ * being the canonical example. The decay curve does the real work of discounting
+ * distance; this is only the outer bound.
+ */
+export const TRANSIT_MAX_WALK_METERS = 0.75 * METERS_PER_MILE;
+
+/** Stops within this distance are treated as being at the door. */
+export const TRANSIT_FULL_WEIGHT_METERS = 400;
 
 /**
  * Raw transit points that correspond to a score of 100.
@@ -158,22 +178,27 @@ export const TRANSIT_MAX_WALK_METERS = 0.5 * METERS_PER_MILE;
  * SF, the Chicago Loop) land in the 95-100 band and a single hourly bus route lands in
  * the low teens. See `docs/METHODOLOGY.md` for the calibration set.
  */
-export const TRANSIT_SATURATION_POINTS = 78;
+export const TRANSIT_SATURATION_POINTS = 55;
 
 // ---------------------------------------------------------------------------
 // Bike
 // ---------------------------------------------------------------------------
 
 /**
- * Bike Score component weights. Infrastructure and destinations dominate; hills matter
- * but are a smaller factor than riders expect, and commute mode share is a lagging
- * indicator so it is deliberately given the least influence.
+ * Bike Score component weights.
+ *
+ * Infrastructure dominates. That is not obvious — destinations and connectivity feel like
+ * they should matter as much — but calibration is unambiguous about it: quiet, well
+ * connected streetcar suburbs with plenty of shops and no bike lanes score in the
+ * mid-fifties in practice, and any weighting that lets connectivity and destinations
+ * carry the score rates them in the eighties. Having somewhere to ride *to* does not help
+ * if there is nowhere safe to ride *on*.
  */
 export const BIKE_COMPONENT_WEIGHTS = {
-  infrastructure: 0.3,
+  infrastructure: 0.4,
   hills: 0.25,
-  destinations: 0.3,
-  connectivity: 0.15,
+  destinations: 0.25,
+  connectivity: 0.1,
 } as const;
 
 /**
