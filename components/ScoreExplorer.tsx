@@ -12,6 +12,8 @@ interface Props {
   initialLng?: number | null;
   /** Hide the search box — used by the embed when the host page supplied the address. */
   hideSearch?: boolean;
+  /** Hide the resolved address, when the surrounding chrome already shows it. */
+  hideAddress?: boolean;
   /** Origin of the API, so an embedded copy can call back to its own host. */
   apiBase?: string;
   compact?: boolean;
@@ -28,6 +30,7 @@ export function ScoreExplorer({
   initialLat = null,
   initialLng = null,
   hideSearch = false,
+  hideAddress = false,
   apiBase = "",
   compact = false,
 }: Props) {
@@ -114,6 +117,7 @@ export function ScoreExplorer({
         <Result
           result={state.result}
           compact={compact}
+          hideAddress={hideAddress}
           expanded={expanded}
           onToggle={() => setExpanded((value) => !value)}
         />
@@ -144,17 +148,19 @@ function LoadingState() {
 function Result({
   result,
   compact,
+  hideAddress,
   expanded,
   onToggle,
 }: {
   result: ScoreResult;
   compact: boolean;
+  hideAddress: boolean;
   expanded: boolean;
   onToggle: () => void;
 }) {
   return (
     <div className="space-y-5">
-      {result.location.address && (
+      {!hideAddress && result.location.address && (
         <p className="text-sm text-ink-muted">{result.location.address}</p>
       )}
 

@@ -6,6 +6,7 @@
  * part of their page rather than as an advert for ours.
  */
 
+import { EmbedAutoHeight } from "@/components/EmbedAutoHeight";
 import { ScoreExplorer } from "@/components/ScoreExplorer";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +49,8 @@ export default async function EmbedPage({ searchParams }: Props) {
       className="dws-embed px-4 py-4"
       style={{ ["--dws-accent" as string]: accent }}
     >
+      <EmbedAutoHeight />
+
       {showHeader && (
         <header className="mb-4">
           <h1 className="text-base font-semibold">Getting around</h1>
@@ -60,6 +63,9 @@ export default async function EmbedPage({ searchParams }: Props) {
         initialLat={lat}
         initialLng={lng}
         hideSearch={Boolean(address || (lat !== null && lng !== null))}
+        // The header already names the property; repeating it wastes the little vertical
+        // space an inline embed gets.
+        hideAddress={showHeader}
         compact
       />
     </div>

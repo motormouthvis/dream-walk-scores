@@ -149,6 +149,29 @@
     return API_BASE + "/embed?" + params.join("&");
   }
 
+  /**
+   * Track frames that have asked to be resized.
+   *
+   * An iframe cannot size itself, and a fixed height is wrong in both directions: too
+   * short clips the summary, too tall leaves dead space in the middle of a partner's
+   * listing. The embedded page posts its content height and we apply it here.
+   */
+  var managedFrames = [];
+
+  on(window, "message", function (event) {
+    var data = event.data;
+    if (!data || data.type !== "dws:height" || typeof data.height !== "number") return;
+
+    for (var i = 0; i < managedFrames.length; i++) {
+      var entry = managedFrames[i];
+      // Only resize the frame that sent the message; a page may host several widgets.
+      if (entry.frame.contentWindow !== event.source) continue;
+      // Clamp: a bug at either end should not blank the widget or blow out the page.
+      var height = Math.max(entry.minHeight, Math.min(4000, Math.ceil(data.height)));
+      entry.frame.style.height = height + "px";
+    }
+  });
+
   function buildIframe(src, minHeight) {
     var frame = document.createElement("iframe");
     frame.src = src;
@@ -156,7 +179,9 @@
     frame.setAttribute("loading", "lazy");
     frame.setAttribute("scrolling", "no");
     frame.style.cssText =
-      "width:100%;border:0;display:block;background:transparent;min-height:" + minHeight + "px;";
+      "width:100%;border:0;display:block;background:transparent;" +
+      "height:" + minHeight + "px;transition:height .2s ease;";
+    managedFrames.push({ frame: frame, minHeight: minHeight });
     return frame;
   }
 

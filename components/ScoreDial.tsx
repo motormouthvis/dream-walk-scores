@@ -66,12 +66,14 @@ export function ScoreDial({ label, score, description, explanation, size = "md" 
         </text>
       </svg>
 
+      {/* Labels wrap rather than truncate: "Car-Depende…" is not a score anyone can read,
+          and these strings are the part a visitor actually understands. */}
       <div className="min-w-0">
         <div className="dws-label">{label}</div>
-        <div className={`truncate text-base font-semibold ${tone.text}`}>
+        <div className={`text-base font-semibold leading-snug ${tone.text}`}>
           {description ?? "Not rated"}
         </div>
-        {explanation && <p className="mt-0.5 text-sm text-ink-muted">{explanation}</p>}
+        {explanation && <p className="mt-0.5 text-sm leading-snug text-ink-muted">{explanation}</p>}
       </div>
     </div>
   );
