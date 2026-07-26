@@ -39,10 +39,14 @@ heroku buildpacks:add heroku/nodejs
 
 heroku addons:create heroku-postgresql:essential-0 --wait
 
+# Heroku gives new apps a random suffix in their hostname, so read the URL back rather
+# than assuming https://<app>.herokuapp.com.
+BASE="$(heroku apps:info --app dream-walk-scores --json | jq -r '.app.web_url' | sed 's:/$::')"
+
 heroku config:set \
   PGSSLMODE=require \
   ADMIN_PASSWORD="$(openssl rand -hex 24)" \
-  PUBLIC_BASE_URL="https://dream-walk-scores.herokuapp.com"
+  PUBLIC_BASE_URL="$BASE"
 
 # Heroku always deploys its own `main`, whatever the local branch is called.
 git push heroku cursor/dream-walk-scores-foundation-ebfd:main
@@ -50,7 +54,7 @@ git push heroku cursor/dream-walk-scores-foundation-ebfd:main
 # The schema applies automatically in the release phase. Then load transit:
 heroku run "python3 pipeline/load_gtfs.py --catalog --top 25"
 
-curl "https://dream-walk-scores.herokuapp.com/api/health"
+curl "$BASE/api/health"
 ```
 
 ---

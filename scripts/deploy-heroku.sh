@@ -29,6 +29,8 @@ step "Checking prerequisites"
 command -v heroku >/dev/null 2>&1 || die \
   "The Heroku CLI is not installed. See https://devcenter.heroku.com/articles/heroku-cli"
 
+command -v node >/dev/null 2>&1 || die "Node is required to read the Heroku CLI's JSON output."
+
 if ! heroku auth:whoami >/dev/null 2>&1; then
   die "Not logged in to Heroku. Run 'heroku login', or export HEROKU_API_KEY."
 fi
@@ -45,6 +47,18 @@ else
   heroku apps:create "$APP" --stack heroku-24
   info "created"
 fi
+
+# Heroku gives apps created since 2023 a random suffix in their hostname, so the URL cannot
+# be derived from the app name — it has to be read back from the platform.
+BASE="$(heroku apps:info --app "$APP" --json 2>/dev/null | node -e '
+  let s = "";
+  process.stdin.on("data", d => s += d).on("end", () => {
+    try { process.stdout.write(((JSON.parse(s).app || {}).web_url || "").replace(/\/$/, "")); }
+    catch { /* leave empty; the caller reports it */ }
+  });
+')"
+[ -n "$BASE" ] || die "Could not read the URL of app '${APP}' from the Heroku API."
+info "url ${BASE}"
 
 # ---------------------------------------------------------------------------
 
@@ -89,7 +103,7 @@ fi
 heroku config:set \
   PGSSLMODE=require \
   ADMIN_PASSWORD="$ADMIN_PASSWORD_VALUE" \
-  PUBLIC_BASE_URL="https://${APP}.herokuapp.com" \
+  PUBLIC_BASE_URL="$BASE" \
   --app "$APP" >/dev/null
 
 info "PGSSLMODE, ADMIN_PASSWORD and PUBLIC_BASE_URL set"
@@ -108,7 +122,6 @@ git push heroku "${BRANCH}:main" --force-with-lease 2>&1 | sed 's/^/    /'
 
 step "Waiting for the app to come up"
 
-BASE="https://${APP}.herokuapp.com"
 for attempt in $(seq 1 30); do
   if curl -fsS --max-time 15 "${BASE}/api/health" >/dev/null 2>&1; then
     info "responding after ${attempt} attempt(s)"
